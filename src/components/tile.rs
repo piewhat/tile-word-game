@@ -50,7 +50,7 @@ pub struct TileScoreBundle {
 }
 
 impl TileScoreBundle {
-    pub fn new(score: char, font: Handle<Font>) -> Self {
+    pub fn new(score: impl Into<String>, font: Handle<Font>) -> Self {
         Self {
             text: Text2d::new(score),
             font: TextFont {

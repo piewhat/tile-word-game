@@ -3,6 +3,7 @@ use crate::components::{
     slot::{Slot, SwapSlot},
     tile::Tile,
 };
+use crate::events::SubmitWord;
 use bevy::prelude::*;
 
 pub fn handle_typing(
@@ -56,6 +57,25 @@ pub fn handle_typing(
                         .entity(*occupied_slot_entity)
                         .insert(SwapSlot(available_grid_slot_entity));
                 }
+            }
+        } else if key == &KeyCode::Enter {
+            let mut occupied_slots_vec: Vec<_> =
+                available_slots.iter().filter(|s| s.1.0.is_some()).collect();
+
+            occupied_slots_vec
+                .sort_by(|a, b| a.2.translation.x.partial_cmp(&b.2.translation.x).unwrap());
+
+            let mut word = String::new();
+            for (_, slot, _) in occupied_slots_vec {
+                if let Some(tile_entity) = slot.0 {
+                    if let Ok(text) = tiles.get(tile_entity) {
+                        word.push_str(&text.0);
+                    }
+                }
+            }
+
+            if !word.is_empty() {
+                commands.trigger(SubmitWord { word });
             }
         }
     }
