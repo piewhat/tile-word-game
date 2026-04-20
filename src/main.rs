@@ -1,16 +1,22 @@
-mod components;
-mod systems;
-
 use bevy::{color::palettes::css::*, prelude::*, text::TextBounds};
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use fastrand;
 
+mod components;
+mod systems;
+
 use crate::{
     components::{
-        dragging::Dragging, grid::Grid, occupied::Occupied, place_tile::PlaceTile, placed::Placed,
-        slot::Slot, tile::Tile,
+        grid::Grid,
+        slot::{Slot, SlotUpdate, SwapSlot},
+        tile::Tile,
     },
-    systems::{cursor::cursor, reset::check_spacebar_and_reset, typing::handle_typing},
+    systems::{
+        cursor::cursor,
+        reset::check_spacebar_and_reset,
+        slot::{swap_slots, update_slots},
+        typing::handle_typing,
+    },
 };
 
 #[derive(Resource, Default)]
@@ -31,53 +37,26 @@ fn main() {
         .init_resource::<WorldCoords>()
         .init_resource::<DragOrigin>()
         .add_systems(Startup, add_tile)
-        .add_systems(Update, (cursor, check_spacebar_and_reset, handle_typing))
+        .add_systems(
+            Update,
+            (
+                cursor,
+                check_spacebar_and_reset,
+                handle_typing,
+                swap_slots,
+                update_slots,
+            ),
+        )
         .run();
 }
 
 fn add_tile(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((Camera2d, MainCamera));
 
-    for i in -5..5 {
-        commands.spawn((
-            Slot(Some(i + 5)),
-            Text2d::new(format!("\n\n\n{}", i + 6)),
-            TextFont {
-                font: asset_server.load("fonts/Roboto-Regular.ttf"),
-                font_size: 20.0,
-                ..Default::default()
-            },
-            TextColor(BLACK.into()),
-            TextLayout::new_with_justify(JustifyText::Right),
-            TextBounds::from(Vec2::new(89., 95.)),
-            Sprite::from_image(asset_server.load("box.png")),
-            Transform::from_xyz((i as f32 + 0.5) * 110., 200., 0.),
-        ));
-    }
-
-    for r in -2..2 {
-        for c in -2..2 {
-            commands.spawn((
-                Slot::default(),
-                Grid,
-                TextFont {
-                    font: asset_server.load("fonts/Roboto-Regular.ttf"),
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-                TextColor(BLACK.into()),
-                TextLayout::new_with_justify(JustifyText::Right),
-                TextBounds::from(Vec2::new(89., 95.)),
-                Sprite::from_image(asset_server.load("box.png")),
-                Transform::from_xyz((r as f32 + 0.5) * 110., (c as f32 - 1.) * 110., 0.),
-            ));
-        }
-    }
-
     for r in -2..2 {
         for c in -2..2 {
             let random_char = (b'A' + fastrand::u8(0..26) as u8) as char;
-            commands
+            let tile = commands
                 .spawn((
                     Tile,
                     Text2d::new(random_char),
@@ -89,7 +68,10 @@ fn add_tile(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextColor(BLACK.into()),
                     Sprite::from_image(asset_server.load("box.png")),
                     Transform::from_xyz((r as f32 + 0.5) * 110., (c as f32 - 1.) * 110., 0.),
-                    Pickable::default(),
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: true,
+                    },
                 ))
                 .with_child((
                     Text2d::new('1'),
@@ -99,110 +81,153 @@ fn add_tile(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..Default::default()
                     },
                     TextColor(BLACK.into()),
-                    TextLayout::new_with_justify(JustifyText::Right),
+                    TextLayout::new_with_justify(Justify::Right),
                     TextBounds::from(Vec2::new(89., 95.)),
                 ))
                 .observe(update_tile_position)
-                .observe(handle_tile_drop)
-                .observe(start_tile_drag)
-                .observe(handle_tile_grab);
+                .observe(tile_startdrag)
+                .id();
+
+            commands
+                .spawn((
+                    Slot(Some(tile)),
+                    Grid,
+                    TextFont {
+                        font: asset_server.load("fonts/Roboto-Regular.ttf"),
+                        font_size: 20.0,
+                        ..Default::default()
+                    },
+                    TextColor(BLACK.into()),
+                    TextLayout::new_with_justify(Justify::Right),
+                    TextBounds::from(Vec2::new(89., 95.)),
+                    Sprite::from_image(asset_server.load("box.png")),
+                    Transform::from_xyz((r as f32 + 0.5) * 110., (c as f32 - 1.) * 110., 0.),
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: true,
+                    },
+                ))
+                .observe(slot_to_slot)
+                .observe(slot_enddrag);
+        }
+    }
+
+    for i in -5..5 {
+        commands
+            .spawn((
+                Slot(None),
+                Text2d::new(format!("\n\n\n{}", i + 6)),
+                TextFont {
+                    font: asset_server.load("fonts/Roboto-Regular.ttf"),
+                    font_size: 20.0,
+                    ..Default::default()
+                },
+                TextColor(BLACK.into()),
+                TextLayout::new_with_justify(Justify::Right),
+                TextBounds::from(Vec2::new(89., 95.)),
+                Sprite::from_image(asset_server.load("box.png")),
+                Transform::from_xyz((i as f32 + 0.5) * 110., 200., 0.),
+                Pickable {
+                    should_block_lower: false,
+                    is_hoverable: true,
+                },
+            ))
+            .observe(slot_to_slot)
+            .observe(slot_enddrag);
+    }
+
+    commands
+        .spawn((
+            Sprite::from_image(asset_server.load("shuffle.png")),
+            Transform::from_xyz(-275., -330., 0.),
+            Pickable {
+                should_block_lower: true,
+                is_hoverable: true,
+            },
+        ))
+        .with_child((
+            Sprite::from_image(asset_server.load("box.png")),
+            Transform::from_xyz(0., 0., -1.),
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            },
+        ))
+        .observe(shuffle);
+}
+
+fn shuffle(
+    _click: On<Pointer<Click>>,
+    mut commands: Commands,
+    mut slots: Query<(&mut Slot, Entity, &Transform), With<Grid>>,
+) {
+    let mut tiles = slots.iter().filter_map(|f| f.0.0).collect::<Vec<_>>();
+    let mut all_slots: Vec<_> = slots.iter_mut().collect();
+    all_slots.sort_by(|a, b| {
+        a.2.translation
+            .y
+            .partial_cmp(&b.2.translation.y)
+            .unwrap()
+            .then(b.2.translation.x.partial_cmp(&a.2.translation.x).unwrap())
+    });
+
+    fastrand::shuffle(&mut tiles);
+    all_slots.reverse();
+
+    for (mut slot, slot_entity, _) in all_slots {
+        if let Some(tile_entity) = tiles.pop() {
+            slot.0 = Some(tile_entity);
+            commands.entity(slot_entity).insert(SlotUpdate);
+        } else {
+            slot.0 = None
         }
     }
 }
 
-fn start_tile_drag(
-    drag: Trigger<Pointer<DragStart>>,
+fn slot_to_slot(
+    drag: On<Pointer<DragDrop>>,
     mut commands: Commands,
-    mut transforms: Query<&mut Transform>,
+    slots: Query<&Slot>,
     mut drag_origin: ResMut<DragOrigin>,
-    world_coords: Res<WorldCoords>,
 ) {
-    if let Ok(mut transform) = transforms.get_mut(drag.target()) {
-        let mouse_world_pos = world_coords.0.extend(0.);
-        drag_origin.0 = Some(transform.translation);
-        transform.translation = mouse_world_pos;
-        commands.entity(drag.target()).insert(Dragging);
+    if slots.contains(drag.dropped) && slots.contains(drag.entity) && drag.dropped != drag.entity {
+        drag_origin.0 = None;
+        commands.entity(drag.dropped).insert(SwapSlot(drag.entity));
     }
 }
 
-fn update_tile_position(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    if let Ok(mut transform) = transforms.get_mut(drag.target()) {
+fn tile_startdrag(
+    drag: On<Pointer<DragStart>>,
+    mut drag_origin: ResMut<DragOrigin>,
+    transforms: Query<&Transform>,
+) {
+    if let Ok(transform) = transforms.get(drag.entity) {
+        drag_origin.0 = Some(transform.translation);
+    }
+}
+
+fn slot_enddrag(
+    drag: On<Pointer<DragEnd>>,
+    mut drag_origin: ResMut<DragOrigin>,
+    slots: Query<&Slot>,
+    mut transforms: Query<&mut Transform, With<Tile>>,
+) {
+    if let Some(origin) = drag_origin.0 {
+        if let Ok(slot) = slots.get(drag.entity) {
+            if let Some(slot) = slot.0 {
+                if let Ok(mut transform) = transforms.get_mut(slot) {
+                    transform.translation = origin;
+                    drag_origin.0 = None;
+                }
+            }
+        }
+    }
+}
+
+fn update_tile_position(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+    if let Ok(mut transform) = transforms.get_mut(drag.entity) {
         transform.translation.x += drag.delta.x;
         transform.translation.y += -drag.delta.y;
         transform.translation.z = 1.;
     }
-}
-
-fn handle_tile_grab(
-    _drag: Trigger<Pointer<DragStart>>,
-    mut commands: Commands,
-    mut occupied_slots: Query<(Entity, &Transform), (With<Slot>, With<Occupied>)>,
-    world_coords: Res<WorldCoords>,
-) {
-    let mouse_pos = world_coords.0.extend(0.);
-    for (entity, transform) in occupied_slots.iter_mut() {
-        if transform.translation.distance(mouse_pos) < 50. {
-            commands.entity(entity).remove::<Occupied>(); // this is broken if a tile is dropped over empty space maybe make a standerized way to add a tile to a slot something like PlaceTile(Option<Entity>)
-            break;
-        }
-    }
-}
-
-fn handle_tile_drop(
-    drag: Trigger<Pointer<DragEnd>>,
-    mut commands: Commands,
-    mut drag_tile: Query<&mut Transform, With<Dragging>>,
-    mut tiles_and_slots: Query<
-        (Entity, &mut Transform, Has<Tile>, Has<Slot>, Has<Grid>),
-        Without<Dragging>,
-    >,
-    mut drag_origin: ResMut<DragOrigin>,
-    world_coords: Res<WorldCoords>,
-) {
-    let Ok(mut d_tile_transform) = drag_tile.single_mut() else {
-        commands.entity(drag.target()).remove::<Dragging>();
-        return;
-    };
-
-    let Some(origin) = drag_origin.0 else {
-        commands.entity(drag.target()).remove::<Dragging>();
-        drag_origin.0 = None;
-        return;
-    };
-
-    let mouse_pos = world_coords.0.extend(0.);
-
-    let mut reset = true;
-    let mut tile_processed = false;
-    let mut slot_processed = false;
-
-    for (entity, mut transform, has_tile, has_slot, has_grid) in tiles_and_slots.iter_mut() {
-        if transform.translation.distance(mouse_pos) < 50. {
-            if has_tile && !tile_processed {
-                transform.translation = origin;
-                tile_processed = true;
-            }
-            if has_slot && !slot_processed {
-                d_tile_transform.translation = transform.translation;
-                reset = false;
-                slot_processed = true;
-                if has_grid {
-                    commands.entity(drag.target()).remove::<Placed>();
-                } else {
-                    commands.entity(entity).insert(Occupied);
-                    commands.entity(drag.target()).insert(Placed);
-                }
-            }
-            if tile_processed && slot_processed {
-                break;
-            }
-        }
-    }
-
-    if reset {
-        d_tile_transform.translation = origin;
-    }
-
-    drag_origin.0 = None;
-    commands.entity(drag.target()).remove::<Dragging>();
 }
