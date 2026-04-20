@@ -1,8 +1,6 @@
 # Tile Word Game
 
-<p align="center">
-    <video src="assets/tile.mp4" controls width="600"></video>
-</p>
+https://private-user-images.githubusercontent.com/17803752/581018960-2a0b9ae5-08ba-424f-9fe6-80bcb1e7934f.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzY3MTQ5NzAsIm5iZiI6MTc3NjcxNDY3MCwicGF0aCI6Ii8xNzgwMzc1Mi81ODEwMTg5NjAtMmEwYjlhZTUtMDhiYS00MjRmLTlmZTYtODBiY2IxZTc5MzRmLm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjA0MjAlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwNDIwVDE5NTExMFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWQ1MzhjYWI2OWRkYTk2MDBmZjlmMTU5NzJlMGFmMTFjYmJiYzNiYTVhYzQwNTc4NTQ4ZWIyN2JlNmViMTVkNzcmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT12aWRlbyUyRm1wNCJ9._hpGFeH-1RYRSrp_X4Sf652Btr3GYTnBuvf-O2BDaqE
 
 A word construction game built with the [Bevy engine](https://bevyengine.org/). Arrange tiles to form valid words and rack up your score based on letter rarity!
 
