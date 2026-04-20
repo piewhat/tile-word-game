@@ -8,8 +8,8 @@ mod systems;
 use crate::{
     components::{
         grid::Grid,
-        slot::{Slot, SlotUpdate, SwapSlot},
-        tile::Tile,
+        slot::{Slot, SlotBundle, SlotUpdate, SwapSlot},
+        tile::{Tile, TileBundle, TileScoreBundle},
     },
     systems::{
         cursor::cursor,
@@ -57,32 +57,15 @@ fn add_tile(mut commands: Commands, asset_server: Res<AssetServer>) {
         for c in -2..2 {
             let random_char = (b'A' + fastrand::u8(0..26) as u8) as char;
             let tile = commands
-                .spawn((
-                    Tile,
-                    Text2d::new(random_char),
-                    TextFont {
-                        font: asset_server.load("fonts/Karla-ExtraBold.ttf"),
-                        font_size: 75.0,
-                        ..Default::default()
-                    },
-                    TextColor(BLACK.into()),
-                    Sprite::from_image(asset_server.load("box.png")),
+                .spawn(TileBundle::new(
+                    random_char,
+                    asset_server.load("fonts/Karla-ExtraBold.ttf"),
+                    asset_server.load("box.png"),
                     Transform::from_xyz((r as f32 + 0.5) * 110., (c as f32 - 1.) * 110., 0.),
-                    Pickable {
-                        should_block_lower: false,
-                        is_hoverable: true,
-                    },
                 ))
-                .with_child((
-                    Text2d::new('1'),
-                    TextFont {
-                        font: asset_server.load("fonts/Roboto-Regular.ttf"),
-                        font_size: 20.0,
-                        ..Default::default()
-                    },
-                    TextColor(BLACK.into()),
-                    TextLayout::new_with_justify(Justify::Right),
-                    TextBounds::from(Vec2::new(89., 95.)),
+                .with_child(TileScoreBundle::new(
+                    '1',
+                    asset_server.load("fonts/Roboto-Regular.ttf"),
                 ))
                 .observe(update_tile_position)
                 .observe(tile_startdrag)
@@ -90,22 +73,13 @@ fn add_tile(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             commands
                 .spawn((
-                    Slot(Some(tile)),
+                    SlotBundle::new(
+                        Some(tile),
+                        asset_server.load("fonts/Roboto-Regular.ttf"),
+                        asset_server.load("box.png"),
+                        Transform::from_xyz((r as f32 + 0.5) * 110., (c as f32 - 1.) * 110., 0.),
+                    ),
                     Grid,
-                    TextFont {
-                        font: asset_server.load("fonts/Roboto-Regular.ttf"),
-                        font_size: 20.0,
-                        ..Default::default()
-                    },
-                    TextColor(BLACK.into()),
-                    TextLayout::new_with_justify(Justify::Right),
-                    TextBounds::from(Vec2::new(89., 95.)),
-                    Sprite::from_image(asset_server.load("box.png")),
-                    Transform::from_xyz((r as f32 + 0.5) * 110., (c as f32 - 1.) * 110., 0.),
-                    Pickable {
-                        should_block_lower: false,
-                        is_hoverable: true,
-                    },
                 ))
                 .observe(slot_to_slot)
                 .observe(slot_enddrag);
@@ -115,22 +89,13 @@ fn add_tile(mut commands: Commands, asset_server: Res<AssetServer>) {
     for i in -5..5 {
         commands
             .spawn((
-                Slot(None),
+                SlotBundle::new(
+                    None,
+                    asset_server.load("fonts/Roboto-Regular.ttf"),
+                    asset_server.load("box.png"),
+                    Transform::from_xyz((i as f32 + 0.5) * 110., 200., 0.),
+                ),
                 Text2d::new(format!("\n\n\n{}", i + 6)),
-                TextFont {
-                    font: asset_server.load("fonts/Roboto-Regular.ttf"),
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-                TextColor(BLACK.into()),
-                TextLayout::new_with_justify(Justify::Right),
-                TextBounds::from(Vec2::new(89., 95.)),
-                Sprite::from_image(asset_server.load("box.png")),
-                Transform::from_xyz((i as f32 + 0.5) * 110., 200., 0.),
-                Pickable {
-                    should_block_lower: false,
-                    is_hoverable: true,
-                },
             ))
             .observe(slot_to_slot)
             .observe(slot_enddrag);
